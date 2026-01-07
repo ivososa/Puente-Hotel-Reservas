@@ -19,6 +19,7 @@ import { EditarReservaPage } from './pages/cliente/EditarReservaPage';
 import { AdminPanelPage } from './pages/admin/AdminPanelPage';
 import { AdminNuevaReservaPage } from './pages/admin/AdminNuevaReservaPage';
 import { AdminEditarReservaPage } from './pages/admin/AdminEditarReservaPage';
+import { AdminEmpleadosPage } from './pages/admin/AdminEmpleadosPage';
 
 // Componente para redirigir según rol
 function RedirectByRole() {
@@ -67,6 +68,7 @@ function AppContent() {
             <Route path="/admin/reservas" element={<AdminPanelPage />} />
             <Route path="/admin/nueva-reserva" element={<AdminNuevaReservaPage />} />
             <Route path="/admin/editar-reserva/:id" element={<AdminEditarReservaPage />} />
+            <Route path="/admin/empleados" element={<AdminEmpleadosPage />} />
           </Route>
           
           {/* Ruta 404 */}

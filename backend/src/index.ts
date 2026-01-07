@@ -9,6 +9,7 @@ import reservaRoutes from './routes/reserva.routes';
 import usuarioRoutes from './routes/usuario.routes';
 import parametrosRoutes from './routes/parametros.routes';
 import comentarioRoutes from './routes/comentario.routes';
+import empleadosRoutes from './routes/empleados.routes';
 
 // Inicializar Prisma
 export const prisma = new PrismaClient();
@@ -31,6 +32,7 @@ app.use('/api/reservas', reservaRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/parametros', parametrosRoutes);
 app.use('/api/comentarios', comentarioRoutes);
+app.use('/api/empleados', empleadosRoutes);
 
 // Ruta de salud
 app.get('/api/health', (req, res) => {

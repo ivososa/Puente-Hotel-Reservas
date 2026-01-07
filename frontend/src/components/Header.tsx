@@ -16,7 +16,7 @@ export function Header() {
       <div className="container header-content">
         <Link to="/" className="header-logo">
           <span className="logo-icon">🍽️</span>
-          <span className="logo-text">Restaurante Puente</span>
+          <span className="logo-text">Viejo Puente</span>
         </Link>
 
         <nav className="header-nav">
@@ -27,6 +27,7 @@ export function Header() {
                 <>
                   <Link to="/admin" className="nav-link">Panel</Link>
                   <Link to="/admin/reservas" className="nav-link">Reservas</Link>
+                  <Link to="/admin/empleados" className="nav-link">Empleados</Link>
                 </>
               ) : (
                 // Menú para clientes

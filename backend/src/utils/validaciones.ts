@@ -33,12 +33,12 @@ export function estaEnRangoAnticipacion(fecha: Date, anticipacionMaximaDias: num
 }
 
 // Verificar si faltan más de 24 horas para el turno
-export function faltanMasDe24Horas(fecha: Date, turno: Turno): boolean {
+export function faltanMasDe24Horas(fecha: Date, turno: string): boolean {
   const ahora = new Date();
   const fechaReserva = new Date(fecha);
   
   // Establecer hora aproximada del turno
-  if (turno === Turno.ALMUERZO) {
+  if (turno === 'ALMUERZO') {
     fechaReserva.setHours(12, 0, 0, 0); // Mediodía para almuerzo
   } else {
     fechaReserva.setHours(20, 0, 0, 0); // 8 PM para cena
@@ -83,12 +83,12 @@ export function formatearFecha(fecha: Date): string {
 }
 
 // Obtener nombre del turno
-export function getNombreTurno(turno: Turno): string {
-  return turno === Turno.ALMUERZO ? 'Almuerzo' : 'Cena';
+export function getNombreTurno(turno: string): string {
+  return turno === 'ALMUERZO' ? 'Almuerzo' : 'Cena';
 }
 
 // Obtener nombre de la zona
-export function getNombreZona(zona: Zona): string {
+export function getNombreZona(zona: string): string {
   const nombres: { [key: string]: string } = {
     FRENTE: 'Frente',
     GALERIA: 'Galería',

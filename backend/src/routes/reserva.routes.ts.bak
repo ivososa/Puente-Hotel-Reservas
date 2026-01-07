@@ -27,16 +27,11 @@ router.get('/disponibilidad', verificarToken, async (req: AuthRequest, res) => {
     const fechaReserva = new Date(fecha as string);
     const turnoStr = turno as string;
 
-    console.log('[DEBUG] Disponibilidad - Fecha string recibida:', fecha);
-    console.log('[DEBUG] Disponibilidad - Fecha parseada:', fechaReserva.toISOString());
-    console.log('[DEBUG] Disponibilidad - getDay():', fechaReserva.getDay());
-    console.log('[DEBUG] DIAS_APERTURA:', DIAS_APERTURA);
-    console.log('[DEBUG] Turno:', turnoStr);
+    console.log('[DEBUG] Disponibilidad - Fecha:', fechaReserva.toISOString(), 'Turno:', turnoStr);
 
     // Validar día de apertura
     if (!esDiaApertura(fechaReserva)) {
       const diaSemana = fechaReserva.getDay();
-      console.log('[DEBUG] Día de semana rechazado:', diaSemana, NOMBRES_DIAS[diaSemana]);
       return res.status(400).json({
         error: `El restaurante no abre los ${NOMBRES_DIAS[diaSemana]}. Abrimos de martes a sábado.`
       });
@@ -335,158 +330,6 @@ router.get('/mis-reservas', verificarToken, async (req: AuthRequest, res) => {
   }
 });
 
-// ============== RUTAS PARA RESPONSABLES (ANTES DE /:id) ==============
-
-// Obtener todas las reservas (solo responsables)
-router.get('/admin/todas', verificarToken, verificarResponsable, async (req: AuthRequest, res) => {
-  try {
-    const { fecha, turno, estado } = req.query;
-
-    let whereClause: any = {};
-
-    if (fecha) {
-      const fechaFiltro = new Date(fecha as string);
-      const fechaInicio = new Date(fechaFiltro);
-      fechaInicio.setHours(0, 0, 0, 0);
-      const fechaFin = new Date(fechaFiltro);
-      fechaFin.setHours(23, 59, 59, 999);
-      
-      whereClause.fecha = { gte: fechaInicio, lte: fechaFin };
-    }
-
-    if (turno) {
-      whereClause.turno = turno as string;
-    }
-
-    if (estado) {
-      whereClause.estado = estado as string;
-    }
-
-    const reservas = await prisma.reserva.findMany({
-      where: whereClause,
-      include: {
-        cliente: {
-          select: {
-            id: true,
-            nombre: true,
-            apellido: true,
-            email: true,
-            telefono: true
-          }
-        },
-        comentarios: true
-      },
-      orderBy: [
-        { fecha: 'asc' },
-        { turno: 'asc' }
-      ]
-    });
-
-    res.json({ reservas });
-  } catch (error) {
-    console.error('Error al obtener reservas:', error);
-    res.status(500).json({ error: 'Error al obtener reservas.' });
-  }
-});
-
-// Obtener resumen de planificación (solo responsables)
-router.get('/admin/planificacion', verificarToken, verificarResponsable, async (req: AuthRequest, res) => {
-  try {
-    const { fecha, turno } = req.query;
-
-    if (!fecha || !turno) {
-      return res.status(400).json({ error: 'Se requiere fecha y turno.' });
-    }
-
-    const fechaFiltro = new Date(fecha as string);
-    const fechaInicio = new Date(fechaFiltro);
-    fechaInicio.setHours(0, 0, 0, 0);
-    const fechaFin = new Date(fechaFiltro);
-    fechaFin.setHours(23, 59, 59, 999);
-
-    const reservas = await prisma.reserva.findMany({
-      where: {
-        fecha: { gte: fechaInicio, lte: fechaFin },
-        turno: turno as string,
-        estado: 'RESERVADA'
-      },
-      include: {
-        cliente: {
-          select: { nombre: true, apellido: true }
-        }
-      }
-    });
-
-    const parametros = await prisma.parametrosCapacidadRestaurante.findFirst();
-    if (!parametros) {
-      return res.status(500).json({ error: 'Error de configuración.' });
-    }
-
-    const capacidadTotal = parametros.capacidadFrente + parametros.capacidadGaleria + parametros.capacidadSalon;
-    const totalPersonas = reservas.reduce((sum, r) => sum + r.cantidadPersonas, 0);
-    const porcentajeOcupacion = Math.round((totalPersonas / capacidadTotal) * 100);
-
-    // Agrupar por zona
-    const porZona = reservas.reduce((acc: any, r) => {
-      if (!acc[r.zona]) {
-        acc[r.zona] = { reservas: 0, personas: 0, conObservaciones: 0 };
-      }
-      acc[r.zona].reservas++;
-      acc[r.zona].personas += r.cantidadPersonas;
-      if (r.observaciones) acc[r.zona].conObservaciones++;
-      return acc;
-    }, {});
-
-    // Agrupar por tamaño de grupo
-    const porTamano = reservas.reduce((acc: any, r) => {
-      const rango = getRangoTamanoGrupo(r.cantidadPersonas);
-      if (!acc[rango]) {
-        acc[rango] = { reservas: 0, personas: 0, conObservaciones: 0 };
-      }
-      acc[rango].reservas++;
-      acc[rango].personas += r.cantidadPersonas;
-      if (r.observaciones) acc[rango].conObservaciones++;
-      return acc;
-    }, {});
-
-    // Agrupar por zona y tamaño
-    const porZonaYTamano = reservas.reduce((acc: any, r) => {
-      const rango = getRangoTamanoGrupo(r.cantidadPersonas);
-      const key = `${r.zona}-${rango}`;
-      if (!acc[key]) {
-        acc[key] = { zona: r.zona, tamano: rango, reservas: 0, personas: 0, conObservaciones: 0 };
-      }
-      acc[key].reservas++;
-      acc[key].personas += r.cantidadPersonas;
-      if (r.observaciones) acc[key].conObservaciones++;
-      return acc;
-    }, {});
-
-    res.json({
-      fecha: fecha,
-      turno: turno,
-      resumen: {
-        capacidadTotal,
-        totalPersonas,
-        porcentajeOcupacion,
-        totalReservas: reservas.length,
-        conObservaciones: reservas.filter(r => r.observaciones).length
-      },
-      porZona,
-      porTamano,
-      porZonaYTamano: Object.values(porZonaYTamano),
-      capacidadPorZona: {
-        FRENTE: parametros.capacidadFrente,
-        GALERIA: parametros.capacidadGaleria,
-        SALON: parametros.capacidadSalon
-      }
-    });
-  } catch (error) {
-    console.error('Error al obtener planificación:', error);
-    res.status(500).json({ error: 'Error al obtener planificación.' });
-  }
-});
-
 // Obtener una reserva específica
 router.get('/:id', verificarToken, async (req: AuthRequest, res) => {
   try {
@@ -727,5 +570,156 @@ router.put('/:id/cancelar', verificarToken, async (req: AuthRequest, res) => {
   }
 });
 
+// ============== RUTAS PARA RESPONSABLES ==============
+
+// Obtener todas las reservas (solo responsables)
+router.get('/admin/todas', verificarToken, verificarResponsable, async (req: AuthRequest, res) => {
+  try {
+    const { fecha, turno, estado } = req.query;
+
+    let whereClause: any = {};
+
+    if (fecha) {
+      const fechaFiltro = new Date(fecha as string);
+      const fechaInicio = new Date(fechaFiltro);
+      fechaInicio.setHours(0, 0, 0, 0);
+      const fechaFin = new Date(fechaFiltro);
+      fechaFin.setHours(23, 59, 59, 999);
+      
+      whereClause.fecha = { gte: fechaInicio, lte: fechaFin };
+    }
+
+    if (turno) {
+      whereClause.turno = turno as string;
+    }
+
+    if (estado) {
+      whereClause.estado = estado as EstadoReserva;
+    }
+
+    const reservas = await prisma.reserva.findMany({
+      where: whereClause,
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
+            telefono: true
+          }
+        },
+        comentarios: true
+      },
+      orderBy: [
+        { fecha: 'asc' },
+        { turno: 'asc' }
+      ]
+    });
+
+    res.json({ reservas });
+  } catch (error) {
+    console.error('Error al obtener reservas:', error);
+    res.status(500).json({ error: 'Error al obtener reservas.' });
+  }
+});
+
+// Obtener resumen de planificación (solo responsables)
+router.get('/admin/planificacion', verificarToken, verificarResponsable, async (req: AuthRequest, res) => {
+  try {
+    const { fecha, turno } = req.query;
+
+    if (!fecha || !turno) {
+      return res.status(400).json({ error: 'Se requiere fecha y turno.' });
+    }
+
+    const fechaFiltro = new Date(fecha as string);
+    const fechaInicio = new Date(fechaFiltro);
+    fechaInicio.setHours(0, 0, 0, 0);
+    const fechaFin = new Date(fechaFiltro);
+    fechaFin.setHours(23, 59, 59, 999);
+
+    const reservas = await prisma.reserva.findMany({
+      where: {
+        fecha: { gte: fechaInicio, lte: fechaFin },
+        turno: turno as string,
+        estado: 'RESERVADA'
+      },
+      include: {
+        cliente: {
+          select: { nombre: true, apellido: true }
+        }
+      }
+    });
+
+    const parametros = await prisma.parametrosCapacidadRestaurante.findFirst();
+    if (!parametros) {
+      return res.status(500).json({ error: 'Error de configuración.' });
+    }
+
+    const capacidadTotal = parametros.capacidadFrente + parametros.capacidadGaleria + parametros.capacidadSalon;
+    const totalPersonas = reservas.reduce((sum, r) => sum + r.cantidadPersonas, 0);
+    const porcentajeOcupacion = Math.round((totalPersonas / capacidadTotal) * 100);
+
+    // Agrupar por zona
+    const porZona = reservas.reduce((acc: any, r) => {
+      if (!acc[r.zona]) {
+        acc[r.zona] = { reservas: 0, personas: 0, conObservaciones: 0 };
+      }
+      acc[r.zona].reservas++;
+      acc[r.zona].personas += r.cantidadPersonas;
+      if (r.observaciones) acc[r.zona].conObservaciones++;
+      return acc;
+    }, {});
+
+    // Agrupar por tamaño de grupo
+    const porTamano = reservas.reduce((acc: any, r) => {
+      const rango = getRangoTamanoGrupo(r.cantidadPersonas);
+      if (!acc[rango]) {
+        acc[rango] = { reservas: 0, personas: 0, conObservaciones: 0 };
+      }
+      acc[rango].reservas++;
+      acc[rango].personas += r.cantidadPersonas;
+      if (r.observaciones) acc[rango].conObservaciones++;
+      return acc;
+    }, {});
+
+    // Agrupar por zona y tamaño
+    const porZonaYTamano = reservas.reduce((acc: any, r) => {
+      const rango = getRangoTamanoGrupo(r.cantidadPersonas);
+      const key = `${r.zona}-${rango}`;
+      if (!acc[key]) {
+        acc[key] = { zona: r.zona, tamano: rango, reservas: 0, personas: 0, conObservaciones: 0 };
+      }
+      acc[key].reservas++;
+      acc[key].personas += r.cantidadPersonas;
+      if (r.observaciones) acc[key].conObservaciones++;
+      return acc;
+    }, {});
+
+    res.json({
+      fecha: fecha,
+      turno: turno,
+      resumen: {
+        capacidadTotal,
+        totalPersonas,
+        porcentajeOcupacion,
+        totalReservas: reservas.length,
+        conObservaciones: reservas.filter(r => r.observaciones).length
+      },
+      porZona,
+      porTamano,
+      porZonaYTamano: Object.values(porZonaYTamano),
+      capacidadPorZona: {
+        FRENTE: parametros.capacidadFrente,
+        GALERIA: parametros.capacidadGaleria,
+        SALON: parametros.capacidadSalon
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener planificación:', error);
+    res.status(500).json({ error: 'Error al obtener planificación.' });
+  }
+});
 
 export default router;

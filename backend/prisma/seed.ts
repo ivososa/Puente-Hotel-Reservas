@@ -7,7 +7,7 @@ async function main() {
   console.log('🌱 Iniciando seed de la base de datos...');
 
   // Crear usuario administrador
-  const passwordHash = await bcrypt.hash('ivo', 10);
+  const passwordHashAdmin = await bcrypt.hash('ivo', 10);
   
   const admin = await prisma.usuario.upsert({
     where: { email: 'admin' },
@@ -17,12 +17,30 @@ async function main() {
       apellido: 'Sistema',
       telefono: '000000000',
       email: 'admin',
-      passwordHash: passwordHash,
+      passwordHash: passwordHashAdmin,
       rol: 'RESPONSABLE',
     },
   });
 
   console.log('✅ Usuario administrador creado:', admin.email);
+
+  // Crear usuario empleado
+  const passwordHashEmpleado = await bcrypt.hash('empleado', 10);
+  
+  const empleado = await prisma.usuario.upsert({
+    where: { email: 'empleado' },
+    update: {},
+    create: {
+      nombre: 'Empleado',
+      apellido: 'Sistema',
+      telefono: '000000001',
+      email: 'empleado',
+      passwordHash: passwordHashEmpleado,
+      rol: 'RESPONSABLE',
+    },
+  });
+
+  console.log('✅ Usuario empleado creado:', empleado.email);
 
   // Crear parámetros de capacidad iniciales
   const parametros = await prisma.parametrosCapacidadRestaurante.upsert({

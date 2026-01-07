@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../index';
 import { verificarToken, AuthRequest } from '../middleware/auth.middleware';
-import { Rol } from '@prisma/client';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'restaurante-puente-secret-key';
@@ -13,8 +12,11 @@ router.post('/registro', async (req, res) => {
   try {
     const { nombre, apellido, telefono, email, password } = req.body;
 
+    console.log('[POST /auth/registro] Registrando nuevo usuario:', { nombre, apellido, email });
+
     // Validaciones básicas
     if (!nombre || !apellido || !telefono || !email || !password) {
+      console.log('[POST /auth/registro] Falta campos obligatorios');
       return res.status(400).json({ 
         error: 'Todos los campos son obligatorios: nombre, apellido, teléfono, email y contraseña.' 
       });
@@ -32,6 +34,7 @@ router.post('/registro', async (req, res) => {
     });
 
     if (usuarioExistente) {
+      console.log('[POST /auth/registro] Email ya existe:', email);
       return res.status(400).json({ 
         error: 'Ya existe una cuenta con este email.' 
       });
@@ -48,7 +51,7 @@ router.post('/registro', async (req, res) => {
         telefono,
         email,
         passwordHash,
-        rol: Rol.CLIENTE // Los registros siempre son clientes
+        rol: 'CLIENTE' // Los registros siempre son clientes
       },
       select: {
         id: true,
@@ -60,6 +63,8 @@ router.post('/registro', async (req, res) => {
         fechaCreacion: true
       }
     });
+
+    console.log('[POST /auth/registro] Usuario creado:', nuevoUsuario.id);
 
     // Generar token
     const token = jwt.sign(
